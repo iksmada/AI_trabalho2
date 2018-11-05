@@ -1,0 +1,6 @@
+bin/
+.idea/
+venv/
+results/
+params/
+cmake-build-debug/
