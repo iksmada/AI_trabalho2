@@ -257,13 +257,6 @@ iftLabeledSet *iftConnectInternalSeeds(iftLabeledSet *seeds, iftImage *objmap)
     return (newS);
 }
 
-iftImage *iftDelineateObjectByWatershed(iftFImage *weight, iftLabeledSet *seeds) {
-
-    iftImage   *label = NULL;
-
-    return (label);
-}
-
 iftImage *iftDelineateObjectByOrientedWatershed(iftFImage *weight, iftImage *objmap, iftLabeledSet *seeds) {
 
     iftImage   *label = NULL;
@@ -350,7 +343,11 @@ iftImage *iftDelineateObjectRegion(iftImage *weight, iftLabeledSet *seeds) {
     return (label);
 }
 
+iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds) {
+    iftWarning("Using this", "iftDelineateObjectByWatershed");
 
+    return (iftDelineateObjectRegion(gradient,seeds));
+}
 
 int main(int argc, char *argv[])
 {
