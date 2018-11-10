@@ -403,13 +403,17 @@ int main(int argc, char *argv[])
 
     iftFImage *gradient = iftGradientImage(mimg,C);
     iftFImage *weight;
-    if (alpha!=0.0)
-        weight = iftArcWeightImage(gradient,objmap,alpha,C);
+    if (alpha!=0.0) {
+        aux = iftFImageToImage(gradient,Imax);
+        iftWriteImageByExt(aux, "gradient.png");
+        iftDestroyImage(&aux);
+        weight = iftArcWeightImage(gradient, objmap, alpha, C);
+    }
     else
         weight = gradient;
     aux  = iftFImageToImage(weight,Imax);
     iftWriteImageByExt(aux,"weight.png");
-
+    iftDestroyImage(&aux);
 
     /* to use or not this function, change comments below */
     iftLabeledSet *seeds = iftConnectInternalSeeds(training_set, objmap);
@@ -422,7 +426,9 @@ int main(int argc, char *argv[])
        w5 as in the paper. */
 
     iftImage *label = NULL;
-    label = iftDelineateObjectRegion(iftFImageToImage(weight,255),seeds);
+    aux = iftFImageToImage(weight,Imax);
+    label = iftDelineateObjectRegion(aux,seeds);
+    iftDestroyImage(&aux);
     //label = iftDelineateObjectByWatershed(gradient,seeds);
     //label = iftDelineateObjectByOrientedWatershed(gradient,objmap,seeds);
 
@@ -438,7 +444,6 @@ int main(int argc, char *argv[])
     iftDestroyAdjRel(&C);
     iftDestroyImage(&img);
     iftDestroyImage(&objmap);
-    iftDestroyImage(&aux);
     iftDestroyFImage(&gradient);
     iftDestroyFImage(&weight);
     iftDestroyImage(&label);
