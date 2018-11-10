@@ -143,6 +143,7 @@ iftImage *iftObjectMap(iftMImage *mimg, iftLabeledSet *training_set, int Imax)
     objmap = iftMedianFilter(aux,A);
     iftDestroyImage(&aux);
     iftDestroyAdjRel(&A);
+    iftDestroyCplGraph(&graph);
 
     return(objmap);
 }
@@ -273,7 +274,7 @@ iftImage *iftDelineateObjectByOrientedWatershed(iftFImage *weight, iftImage *obj
 /* This function must delineate the object from internal and external
    seeds as described in the slides of the segmentation lectures */
 
-iftImage *iftDelineateObjectRegion(iftMImage *mimg, iftImage *objmap, iftLabeledSet *seeds, float alpha) {
+iftImage *iftDelineateObjectRegion(iftImage *objmap, iftLabeledSet *seeds) {
 
     iftImage   *pathval = NULL, *label = NULL;
     iftGQueue  *Q = NULL;
@@ -421,9 +422,9 @@ int main(int argc, char *argv[])
        w5 as in the paper. */
 
     iftImage *label = NULL;
-    label = iftDelineateObjectRegion(mimg,objmap,seeds,alpha);
-    //label = iftDelineateObjectByWatershed(weight,seeds);
-    //label = iftDelineateObjectByOrientedWatershed(weight,objmap,seeds);
+    label = iftDelineateObjectRegion(iftFImageToImage(weight,255),seeds);
+    //label = iftDelineateObjectByWatershed(gradient,seeds);
+    //label = iftDelineateObjectByOrientedWatershed(gradient,objmap,seeds);
 
     /* Draw segmentation border */
 
