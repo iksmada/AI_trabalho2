@@ -51,55 +51,58 @@ float iftMaxArcWeight(iftMImage *mimg, iftAdjRel *A)
     return(maxarcw);
 }
 
-/* Compute a weight image from the arc weights of the image graph */
+/* Compute gradient of the image graph */
 
-iftFImage *iftArcWeightImage(iftMImage *mimg, iftImage *objmap, float alpha, iftAdjRel *A)
-{
+iftFImage *iftGradientImage(iftMImage *mimg, iftAdjRel *A) {
     float Featp[mimg->m], Featq[mimg->m], fmax, fdist;
-    iftFImage *weight = iftCreateFImage(mimg->xsize,mimg->ysize,mimg->zsize);
+    iftFImage *gradient = iftCreateFImage(mimg->xsize, mimg->ysize, mimg->zsize);
 
-    if ((objmap == NULL)&&(alpha != 0.0))
-        iftError("It requires an object map for alpha=%f","iftArcWeightImage",alpha);
-
-    for (int p=0; p < mimg->n; p++){
-        iftVoxel u = iftMGetVoxelCoord(mimg,p);
+    for (int p = 0; p < mimg->n; p++) {
+        iftVoxel u = iftMGetVoxelCoord(mimg, p);
         fmax = 0.0;
-        for (int i=1; i < A->n; i++){
-            iftVoxel v = iftGetAdjacentVoxel(A,u,i);
-            if (iftMValidVoxel(mimg,v)){
-                int q = iftMGetVoxelIndex(mimg,v);
-                for (int f=0; f < mimg->m; f++) {
+        for (int i = 1; i < A->n; i++) {
+            iftVoxel v = iftGetAdjacentVoxel(A, u, i);
+            if (iftMValidVoxel(mimg, v)) {
+                int q = iftMGetVoxelIndex(mimg, v);
+                for (int f = 0; f < mimg->m; f++) {
                     Featp[f] = mimg->band[f].val[p];
                     Featq[f] = mimg->band[f].val[q];
                 }
-                fdist = iftFeatDistance(Featp,Featq,mimg->m);
+                fdist = iftFeatDistance(Featp, Featq, mimg->m);
                 if (fdist > fmax)
                     fmax = fdist;
             }
         }
-        weight->val[p] = fmax;
+        gradient->val[p] = fmax;
     }
 
-    if (objmap != NULL) {
+    return (gradient);
+}
 
-        float Wmax = iftFMaximumValue(weight);
-        float Omax = iftMaximumValue(objmap);
+/* Compute a weight image from the arc weights of the image graph */
 
-        for (int p=0; p < mimg->n; p++){
-            iftVoxel u = iftMGetVoxelCoord(mimg,p);
-            fmax = 0.0;
-            for (int i=1; i < A->n; i++){
-                iftVoxel v = iftGetAdjacentVoxel(A,u,i);
-                if (iftMValidVoxel(mimg,v)){
-                    int q = iftMGetVoxelIndex(mimg,v);
-                    fdist = fabs(objmap->val[q]-objmap->val[p]);
-                    if (fdist > fmax)
-                        fmax = fdist;
-                }
+iftFImage *iftArcWeightImage(iftFImage *gradient, iftImage *objmap, float alpha, iftAdjRel *A)
+{
+    float fmax, fdist;
+    iftFImage *weight = iftCreateFImage(objmap->xsize,objmap->ysize,objmap->zsize);
+
+    float Wmax = iftFMaximumValue(gradient);
+    float Omax = iftMaximumValue(objmap);
+
+    for (int p=0; p < objmap->n; p++){
+        iftVoxel u = iftGetVoxelCoord(objmap,p);
+        fmax = 0.0;
+        for (int i=1; i < A->n; i++){
+            iftVoxel v = iftGetAdjacentVoxel(A,u,i);
+            if (iftValidVoxel(objmap,v)){
+                int q = iftGetVoxelIndex(objmap,v);
+                fdist = fabs(objmap->val[q]-objmap->val[p]);
+                if (fdist > fmax)
+                    fmax = fdist;
             }
-            weight->val[p] = Omax*((weight->val[p]/Wmax)*(1.0-alpha)+
-                                   alpha*fmax/Omax);
         }
+        weight->val[p] = Omax*((gradient->val[p]/Wmax)*(1.0-alpha)+
+                               alpha*fmax/Omax);
     }
 
     return(weight);
@@ -397,7 +400,12 @@ int main(int argc, char *argv[])
     objmap = iftObjectMap(mimg, training_set, Imax);
     iftWriteImageByExt(objmap,"objmap.png");
 
-    iftFImage *weight = iftArcWeightImage(mimg,objmap,alpha,C);
+    iftFImage *gradient = iftGradientImage(mimg,C);
+    iftFImage *weight;
+    if (alpha!=0.0)
+        weight = iftArcWeightImage(gradient,objmap,alpha,C);
+    else
+        weight = gradient;
     aux  = iftFImageToImage(weight,Imax);
     iftWriteImageByExt(aux,"weight.png");
 
@@ -429,6 +437,8 @@ int main(int argc, char *argv[])
     iftDestroyAdjRel(&C);
     iftDestroyImage(&img);
     iftDestroyImage(&objmap);
+    iftDestroyImage(&aux);
+    iftDestroyFImage(&gradient);
     iftDestroyFImage(&weight);
     iftDestroyImage(&label);
     iftDestroyMImage(&mimg);
