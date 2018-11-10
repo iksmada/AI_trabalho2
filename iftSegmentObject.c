@@ -346,7 +346,77 @@ iftImage *iftDelineateObjectRegion(iftImage *weight, iftLabeledSet *seeds) {
 iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds) {
     iftWarning("Using this", "iftDelineateObjectByWatershed");
 
-    return (iftDelineateObjectRegion(gradient,seeds));
+    iftImage   *pathval = NULL, *label = NULL;
+    iftGQueue  *Q = NULL;
+    int         i, p, q, tmp, Omax=iftMaximumValue(gradient);
+    iftVoxel    u, v;
+    iftLabeledSet *S = NULL;
+    iftAdjRel     *A = NULL;
+
+    if (iftNumberOfLabels(seeds)!=2)
+        iftError("It is only implemented for binary segmentation","iftDelineateObjectRegion");
+
+    if (iftIs3DImage(gradient))
+        A = iftSpheric(1.0);
+    else
+        A = iftCircular(1.0);
+
+    // Initialization
+    pathval  = iftCreateImage(gradient->xsize, gradient->ysize, gradient->zsize);
+    label     = iftCreateImage(gradient->xsize, gradient->ysize, gradient->zsize);
+    Q        = iftCreateGQueue(Omax+1, gradient->n, pathval->val);
+
+    for (p = 0; p < gradient->n; p++)
+    {
+        pathval->val[p] = IFT_INFINITY_INT;
+        //invalid label to show if some pixel is not labeled
+        label->val[p] = 2;
+    }
+
+    S = seeds;
+    while (S != NULL)
+    {
+        p = S->elem;
+        label->val[p]    = S->label;
+        pathval->val[p] = 0;
+        iftInsertGQueue(&Q,p);
+        S = S->next;
+    }
+
+    /* Image Foresting Transform */
+
+    while (!iftEmptyGQueue(Q))
+    {
+        p = iftRemoveGQueue(Q);
+        u = iftGetVoxelCoord(gradient, p);
+
+        for (i = 1; i < A->n; i++)
+        {
+            v = iftGetAdjacentVoxel(A, u, i);
+
+            if (iftValidVoxel(gradient, v))
+            {
+                q = iftGetVoxelIndex(gradient, v);
+                if (Q->L.elem[q].color != IFT_BLACK)
+                {
+                    tmp = iftMax(abs(gradient->val[q]-gradient->val[p]),pathval->val[p]);
+                    if (tmp < pathval->val[q]){
+                        if (Q->L.elem[q].color == IFT_GRAY)
+                            iftRemoveGQueueElem(Q,q);
+                        label->val[q]     = label->val[p];
+                        pathval->val[q]  = tmp;
+                        iftInsertGQueue(&Q, q);
+                    }
+                }
+            }
+        }
+    }
+
+    iftDestroyAdjRel(&A);
+    iftDestroyGQueue(&Q);
+    iftDestroyImage(&pathval);
+
+    return (label);
 }
 
 int main(int argc, char *argv[])
@@ -425,7 +495,7 @@ int main(int argc, char *argv[])
     iftImage *label = NULL;
     if (alpha!=0.0) {
         aux = iftFImageToImage(weight, Imax);
-        label = iftDelineateObjectRegion(aux, seeds);
+        label = iftDelineateObjectRegion(aux, gradient, seeds);
         iftDestroyImage(&aux);
     }
     else {
