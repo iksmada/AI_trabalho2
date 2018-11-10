@@ -55,7 +55,7 @@ float iftMaxArcWeight(iftMImage *mimg, iftAdjRel *A)
 
 iftFImage *iftArcWeightImage(iftMImage *mimg, iftImage *objmap, float alpha, iftAdjRel *A)
 {
-    float Featp[mimg->m], Featq[mimg->m], fmax=0.0, fdist;
+    float Featp[mimg->m], Featq[mimg->m], fmax, fdist;
     iftFImage *weight = iftCreateFImage(mimg->xsize,mimg->ysize,mimg->zsize);
 
     if ((objmap == NULL)&&(alpha != 0.0))
@@ -272,8 +272,75 @@ iftImage *iftDelineateObjectByOrientedWatershed(iftFImage *weight, iftImage *obj
 
 iftImage *iftDelineateObjectRegion(iftMImage *mimg, iftImage *objmap, iftLabeledSet *seeds, float alpha) {
 
-    iftImage   *label = NULL;
+    iftImage   *pathval = NULL, *label = NULL;
+    iftGQueue  *Q = NULL;
+    int         i, p, q, tmp, Omax=iftMaximumValue(objmap);
+    iftVoxel    u, v;
+    iftLabeledSet *S = NULL;
+    iftAdjRel     *A = NULL;
 
+    if (iftNumberOfLabels(seeds)!=2)
+        iftError("It is only implemented for binary segmentation","iftConnectInternalSeeds");
+
+    if (iftIs3DImage(objmap))
+        A = iftSpheric(1.0);
+    else
+        A = iftCircular(1.0);
+
+    // Initialization
+    pathval  = iftCreateImage(objmap->xsize, objmap->ysize, objmap->zsize);
+    label     = iftCreateImage(objmap->xsize, objmap->ysize, objmap->zsize);
+    Q        = iftCreateGQueue(Omax+1, objmap->n, pathval->val);
+
+    for (p = 0; p < objmap->n; p++)
+    {
+        pathval->val[p] = IFT_INFINITY_INT;
+        //invalid label to show if some pixel is not labeled
+        label->val[p] = 2;
+    }
+
+    S = seeds;
+    while (S != NULL)
+    {
+        p = S->elem;
+        label->val[p]    = S->label;
+        pathval->val[p] = 0;
+        iftInsertGQueue(&Q,p);
+        S = S->next;
+    }
+
+    /* Image Foresting Transform */
+
+    while (!iftEmptyGQueue(Q))
+    {
+        p = iftRemoveGQueue(Q);
+        u = iftGetVoxelCoord(objmap, p);
+
+        for (i = 1; i < A->n; i++)
+        {
+            v = iftGetAdjacentVoxel(A, u, i);
+
+            if (iftValidVoxel(objmap, v))
+            {
+                q = iftGetVoxelIndex(objmap, v);
+                if (Q->L.elem[q].color != IFT_BLACK)
+                {
+                    tmp = iftMax(abs(objmap->val[q]-objmap->val[p]),pathval->val[p]);
+                    if (tmp < pathval->val[q]){
+                        if (Q->L.elem[q].color == IFT_GRAY)
+                            iftRemoveGQueueElem(Q,q);
+                        label->val[q]     = label->val[p];
+                        pathval->val[q]  = tmp;
+                        iftInsertGQueue(&Q, q);
+                    }
+                }
+            }
+        }
+    }
+
+    iftDestroyAdjRel(&A);
+    iftDestroyGQueue(&Q);
+    iftDestroyImage(&pathval);
 
     return (label);
 }
