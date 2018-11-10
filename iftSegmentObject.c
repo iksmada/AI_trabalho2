@@ -274,29 +274,30 @@ iftImage *iftDelineateObjectByOrientedWatershed(iftFImage *weight, iftImage *obj
 /* This function must delineate the object from internal and external
    seeds as described in the slides of the segmentation lectures */
 
-iftImage *iftDelineateObjectRegion(iftImage *objmap, iftLabeledSet *seeds) {
+iftImage *iftDelineateObjectRegion(iftImage *weight, iftLabeledSet *seeds) {
+    iftWarning("Using this", "iftDelineateObjectRegion");
 
     iftImage   *pathval = NULL, *label = NULL;
     iftGQueue  *Q = NULL;
-    int         i, p, q, tmp, Omax=iftMaximumValue(objmap);
+    int         i, p, q, tmp, Omax=iftMaximumValue(weight);
     iftVoxel    u, v;
     iftLabeledSet *S = NULL;
     iftAdjRel     *A = NULL;
 
     if (iftNumberOfLabels(seeds)!=2)
-        iftError("It is only implemented for binary segmentation","iftConnectInternalSeeds");
+        iftError("It is only implemented for binary segmentation","iftDelineateObjectRegion");
 
-    if (iftIs3DImage(objmap))
+    if (iftIs3DImage(weight))
         A = iftSpheric(1.0);
     else
         A = iftCircular(1.0);
 
     // Initialization
-    pathval  = iftCreateImage(objmap->xsize, objmap->ysize, objmap->zsize);
-    label     = iftCreateImage(objmap->xsize, objmap->ysize, objmap->zsize);
-    Q        = iftCreateGQueue(Omax+1, objmap->n, pathval->val);
+    pathval  = iftCreateImage(weight->xsize, weight->ysize, weight->zsize);
+    label     = iftCreateImage(weight->xsize, weight->ysize, weight->zsize);
+    Q        = iftCreateGQueue(Omax+1, weight->n, pathval->val);
 
-    for (p = 0; p < objmap->n; p++)
+    for (p = 0; p < weight->n; p++)
     {
         pathval->val[p] = IFT_INFINITY_INT;
         //invalid label to show if some pixel is not labeled
@@ -318,18 +319,18 @@ iftImage *iftDelineateObjectRegion(iftImage *objmap, iftLabeledSet *seeds) {
     while (!iftEmptyGQueue(Q))
     {
         p = iftRemoveGQueue(Q);
-        u = iftGetVoxelCoord(objmap, p);
+        u = iftGetVoxelCoord(weight, p);
 
         for (i = 1; i < A->n; i++)
         {
             v = iftGetAdjacentVoxel(A, u, i);
 
-            if (iftValidVoxel(objmap, v))
+            if (iftValidVoxel(weight, v))
             {
-                q = iftGetVoxelIndex(objmap, v);
+                q = iftGetVoxelIndex(weight, v);
                 if (Q->L.elem[q].color != IFT_BLACK)
                 {
-                    tmp = iftMax(abs(objmap->val[q]-objmap->val[p]),pathval->val[p]);
+                    tmp = iftMax(abs(weight->val[q]-weight->val[p]),pathval->val[p]);
                     if (tmp < pathval->val[q]){
                         if (Q->L.elem[q].color == IFT_GRAY)
                             iftRemoveGQueueElem(Q,q);
