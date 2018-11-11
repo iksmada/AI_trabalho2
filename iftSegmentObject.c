@@ -267,7 +267,7 @@ iftImage *iftDelineateObjectByOrientedWatershed(iftFImage *weight, iftImage *obj
 /* This function must delineate the object from internal and external
    seeds as described in the slides of the segmentation lectures */
 
-iftImage *iftDelineateObjectRegion(iftImage *weight, iftLabeledSet *seeds) {
+iftImage *iftDelineateObjectRegion(iftImage *weight, iftImage *objmap, iftLabeledSet *seeds, float alpha) {
     iftWarning("Using this", "iftDelineateObjectRegion");
 
     iftImage   *pathval = NULL, *label = NULL;
@@ -323,7 +323,12 @@ iftImage *iftDelineateObjectRegion(iftImage *weight, iftLabeledSet *seeds) {
                 q = iftGetVoxelIndex(weight, v);
                 if (Q->L.elem[q].color != IFT_BLACK)
                 {
-                    tmp = iftMax(abs(weight->val[q]-weight->val[p]),pathval->val[p]);
+                    tmp = iftMax(
+                            iftRound(
+                                    alpha*abs(objmap->val[q]-objmap->val[p]) +
+                                    (1-alpha)*abs(weight->val[q]-weight->val[p])
+                                    ),
+                            pathval->val[p]);
                     if (tmp < pathval->val[q]){
                         if (Q->L.elem[q].color == IFT_GRAY)
                             iftRemoveGQueueElem(Q,q);
@@ -494,8 +499,8 @@ int main(int argc, char *argv[])
 
     iftImage *label = NULL;
     if (alpha!=0.0) {
-        aux = iftFImageToImage(weight, Imax);
-        label = iftDelineateObjectRegion(aux, gradient, seeds);
+        aux = iftFImageToImage(gradient, Imax);
+        label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
         iftDestroyImage(&aux);
     }
     else {
