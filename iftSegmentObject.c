@@ -513,7 +513,7 @@ int main(int argc, char *argv[])
     iftAdjRel *A=iftCircular(1.0);
     iftAdjRel *B=iftCircular(0.0);
     iftAdjRel *C=iftCircular(sqrtf(2.0));
-    iftColor   RGB, YCbCr;
+    iftColor   RGB, Blue, Red, Green;
     float      alpha;
 
     if (argc != 5){
@@ -536,7 +536,17 @@ int main(int argc, char *argv[])
     RGB.val[0] = Imax/5.0;
     RGB.val[1] = Imax/2.0;
     RGB.val[2] = Imax;
-    YCbCr      = iftRGBtoYCbCr(RGB,Imax);
+    Blue      = iftRGBtoYCbCr(RGB,Imax);
+
+    RGB.val[0] = Imax;
+    RGB.val[1] = Imax/5.0;
+    RGB.val[2] = Imax/5.0;
+    Red      = iftRGBtoYCbCr(RGB,Imax);
+
+    RGB.val[0] = Imax/5.0;
+    RGB.val[1] = Imax;
+    RGB.val[2] = Imax/5.0;
+    Green      = iftRGBtoYCbCr(RGB,Imax);
 
     /* Convert image into a multiband image */
 
@@ -593,7 +603,7 @@ int main(int argc, char *argv[])
 
     /* Draw segmentation border */
 
-    iftDrawBorders(img, label, A, YCbCr, B);
+    iftDrawBorders(img, label, A, Blue, B);
     //iftMyDrawBinaryLabeledSeeds(img,seeds,YCbCr,A);
 
     iftWriteImageByExt(img,argv[4]);
