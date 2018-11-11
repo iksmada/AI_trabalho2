@@ -579,7 +579,8 @@ int main(int argc, char *argv[])
         aux  = iftFImageToImage(weight,Imax);
         iftWriteImageByExt(aux,"weight.png");
         iftDestroyImage(&aux);
-    }
+    } else
+        weight = gradient;
 
     /* to use or not this function, change comments below */
     iftLabeledSet *seeds = iftConnectInternalSeeds(training_set, objmap);
@@ -592,14 +593,13 @@ int main(int argc, char *argv[])
        w5 as in the paper. */
 
     iftImage *label = NULL;
-    if (alpha!=0.0) {
-        //aux = iftFImageToImage(weight, Imax);
-        aux = iftFImageToImage(gradient, Imax);
-        //label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
-        //label = iftDelineateObjectByWatershed(aux, seeds);
-        label = iftDelineateObjectByOrientedWatershed(aux,objmap,seeds);
-        iftDestroyImage(&aux);
-    }
+
+    //aux = iftFImageToImage(weight, Imax);
+    aux = iftFImageToImage(gradient, Imax);
+    //label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
+    //label = iftDelineateObjectByWatershed(aux, seeds);
+    label = iftDelineateObjectByOrientedWatershed(aux,objmap,seeds);
+    iftDestroyImage(&aux);
 
     /* Draw segmentation border */
 
