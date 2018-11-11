@@ -404,11 +404,12 @@ iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds
                 q = iftGetVoxelIndex(gradient, v);
                 if (Q->L.elem[q].color != IFT_BLACK)
                 {
+                    //tmp = gradient->val[q];
                     tmp = iftMax(abs(gradient->val[q]-gradient->val[p]),pathval->val[p]);
                     if (tmp < pathval->val[q]){
                         if (Q->L.elem[q].color == IFT_GRAY)
                             iftRemoveGQueueElem(Q,q);
-                        label->val[q]     = label->val[p];
+                        label->val[q]    = label->val[p];
                         pathval->val[q]  = tmp;
                         iftInsertGQueue(&Q, q);
                     }
