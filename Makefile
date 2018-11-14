@@ -49,7 +49,7 @@ $@.c: $@.c
 
 
 clean:
-	rm -rf iftSegmentObject
+	rm -rf $(BIN)/*
 
 
 
