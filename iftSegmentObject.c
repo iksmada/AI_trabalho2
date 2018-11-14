@@ -510,6 +510,136 @@ iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds
     return (label);
 }
 
+iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *seeds) {
+    iftWarning("Using this", "iftDelineateObjectByDynamicArcWeight");
+
+    iftImage   *pathval = NULL, *label = NULL, *aux = NULL, *elements = NULL;
+    iftMImage  *mean = NULL;
+    iftGQueue  *Q = NULL;
+    int         i, p, q, tmp, s;
+    float Featp[mimg->m], Featq[mimg->m], Feats[mimg->m], fmin, fdist, Omax = iftMMaximumValue(mimg,0);
+    iftVoxel    u, v;
+    iftLabeledSet *S = NULL;
+    iftAdjRel     *A = NULL;
+
+    if (iftNumberOfLabels(seeds)!=2)
+        iftError("It is only implemented for binary segmentation","iftDelineateObjectByDynamicArcWeight");
+
+    aux = iftMImageToImage(mimg,255,0);
+    if (iftIs3DImage(aux))
+        A = iftSpheric(1.0);
+    else
+        A = iftCircular(1.0);
+    iftDestroyImage(&aux);
+
+    // Initialization
+    pathval   = iftCreateImage(mimg->xsize, mimg->ysize, mimg->zsize);
+    label     = iftCreateImage(mimg->xsize, mimg->ysize, mimg->zsize);
+    mean      = iftCreateMImage(mimg->xsize, mimg->ysize, mimg->zsize, mimg->m);
+    elements  = iftCreateImage(mimg->xsize, mimg->ysize, mimg->zsize);
+    Q         = iftCreateGQueue(iftRound(Omax)+1, mimg->n, pathval->val);
+
+    for (p = 0; p < mimg->n; p++)
+    {
+        pathval->val[p] = IFT_INFINITY_INT;
+        //invalid label to show if some pixel is not labeled
+        label->val[p] = INITIAL_LABEL;
+        for (int f = 0; f < mimg->m; f++) {
+            mean->band[f].val[p] = 0.0f;
+        }
+        elements->val[p] = 0;
+    }
+
+    S = seeds;
+    while (S != NULL)
+    {
+        p = S->elem;
+        label->val[p]    = S->label;
+        pathval->val[p] = 0;
+        for (int f = 0; f < mimg->m; f++) {
+            mean->band[f].val[p] = mimg->band[f].val[p];
+        }
+        elements->val[p] = 1;
+        iftInsertGQueue(&Q,p);
+        S = S->next;
+    }
+
+    S = seeds;
+
+    /* Image Foresting Transform */
+
+    while (!iftEmptyGQueue(Q))
+    {
+        p = iftRemoveGQueue(Q);
+        u = iftMGetVoxelCoord(mimg, p);
+
+        for (i = 1; i < A->n; i++)
+        {
+            v = iftGetAdjacentVoxel(A, u, i);
+
+            if (iftMValidVoxel(mimg, v))
+            {
+                q = iftMGetVoxelIndex(mimg, v);
+                if (Q->L.elem[q].color != IFT_BLACK)
+                {
+                    // calculate w2 min{||Ur - Iq||}
+                    fmin = IFT_INFINITY_FLT;
+                    for (int f = 0; f < mimg->m; f++) {
+                        Featq[f] = mimg->band[f].val[q];
+                    }
+                    while (S != NULL)
+                    {
+                        s = S->elem;
+                        if (S->label == label->val[s]) {
+                            for (int f = 0; f < mimg->m; f++) {
+                                Feats[f] = mimg->band[f].val[s];
+                            }
+                            fdist = iftFeatDistance(Feats, Featq, mimg->m);
+                            fmin = iftMin(fdist,fmin);
+                        }
+                        S = S->next;
+                    }
+                    S = seeds;
+
+                    // calculate w5 ||Iq - Ip||
+                    for (int f = 0; f < mimg->m; f++) {
+                        Featp[f] = mimg->band[f].val[p];
+                    }
+                    fdist = iftFeatDistance(Featp, Featq, mimg->m);
+
+
+                    //compare
+                    tmp = iftRound(iftMax(fmin + fdist,pathval->val[p]));
+                    if (tmp < pathval->val[q]){
+                        if (Q->L.elem[q].color == IFT_GRAY)
+                            iftRemoveGQueueElem(Q,q);
+                        label->val[q]    = label->val[p];
+                        pathval->val[q]  = tmp;
+                        iftInsertGQueue(&Q, q);
+
+                        //update mean and elements lookup tables
+                        elements->val[p] = elements->val[p] + 1;
+                        for (int f = 0; f < mimg->m; f++) {
+                            //calc mean dynamictly https://math.stackexchange.com/questions/106700/incremental-averageing
+                            mean->band[f].val[p] = mean->band[f].val[p] +
+                                    (mimg->band[f].val[p] - mean->band[f].val[p])/elements->val[p];
+                        }
+
+                    }
+                }
+            }
+        }
+    }
+
+    iftDestroyAdjRel(&A);
+    iftDestroyGQueue(&Q);
+    iftDestroyImage(&pathval);
+    iftDestroyMImage(&mean);
+    iftDestroyImage(&elements);
+
+    return (label);
+}
+
 int main(int argc, char *argv[])
 {
     iftAdjRel *A=iftCircular(1.0);
@@ -597,10 +727,11 @@ int main(int argc, char *argv[])
     iftImage *label = NULL;
 
     //aux = iftFImageToImage(weight, Imax);
-    aux = iftFImageToImage(gradient, Imax);
+    //aux = iftFImageToImage(gradient, Imax);
     //label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
     //label = iftDelineateObjectByWatershed(aux, seeds);
-    label = iftDelineateObjectByOrientedWatershed(aux,objmap,seeds);
+    //label = iftDelineateObjectByOrientedWatershed(aux,objmap,seeds);
+    label = iftDelineateObjectByDynamicArcWeight(mimg,seeds);
     iftDestroyImage(&aux);
 
     /* Draw segmentation border */
