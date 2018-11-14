@@ -615,8 +615,9 @@ int main(int argc, char *argv[])
     iftDestroyAdjRel(&C);
     iftDestroyImage(&img);
     iftDestroyImage(&objmap);
+    if (weight != gradient)
+        iftDestroyFImage(&weight);
     iftDestroyFImage(&gradient);
-    iftDestroyFImage(&weight);
     iftDestroyImage(&label);
     iftDestroyMImage(&mimg);
     iftDestroyLabeledSet(&seeds);
