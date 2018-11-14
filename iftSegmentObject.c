@@ -1,5 +1,7 @@
 #include "ift.h"
 
+#define INITIAL_LABEL 2
+
 /* Draw seeds on the image */
 
 void iftMyDrawBinaryLabeledSeeds(iftImage *img,iftLabeledSet *seeds,iftColor YCbCr,iftAdjRel *A)
@@ -285,7 +287,7 @@ iftImage *iftDelineateObjectByOrientedWatershed(iftImage *gradient, iftImage *ob
     {
         pathval->val[p] = IFT_INFINITY_INT;
         //invalid label to show if some pixel is not labeled
-        label->val[p] = 2;
+        label->val[p] = INITIAL_LABEL;
     }
 
     S = seeds;
@@ -377,7 +379,7 @@ iftImage *iftDelineateObjectRegion(iftImage *weight, iftImage *objmap, iftLabele
     {
         pathval->val[p] = IFT_INFINITY_INT;
         //invalid label to show if some pixel is not labeled
-        label->val[p] = 2;
+        label->val[p] = INITIAL_LABEL;
     }
 
     S = seeds;
@@ -458,7 +460,7 @@ iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds
     {
         pathval->val[p] = IFT_INFINITY_INT;
         //invalid label to show if some pixel is not labeled
-        label->val[p] = 2;
+        label->val[p] = INITIAL_LABEL;
     }
 
     S = seeds;
