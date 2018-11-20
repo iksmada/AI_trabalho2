@@ -513,7 +513,7 @@ iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds
 iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *seeds) {
     iftWarning("Using this", "iftDelineateObjectByDynamicArcWeight");
 
-    iftImage   *pathval = NULL, *label = NULL, *aux = NULL, *elements = NULL;
+    iftImage   *pathval = NULL, *label = NULL, *aux = NULL, *elements = NULL, *root = NULL;
     iftMImage  *mean = NULL;
     iftGQueue  *Q = NULL;
     int         i, p, q, tmp, s;
@@ -537,6 +537,7 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
     label     = iftCreateImage(mimg->xsize, mimg->ysize, mimg->zsize);
     mean      = iftCreateMImage(mimg->xsize, mimg->ysize, mimg->zsize, mimg->m);
     elements  = iftCreateImage(mimg->xsize, mimg->ysize, mimg->zsize);
+    root      = iftCreateImage(mimg->xsize, mimg->ysize, mimg->zsize);
     Q         = iftCreateGQueue(iftRound(Omax)+1, mimg->n, pathval->val);
 
     for (p = 0; p < mimg->n; p++)
@@ -547,7 +548,8 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
         for (int f = 0; f < mimg->m; f++) {
             mean->band[f].val[p] = 0.0f;
         }
-        elements->val[p] = 0;
+        elements->val[p] =  0;
+        root->val[p] = -1;
     }
 
     S = seeds;
@@ -560,6 +562,7 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
             mean->band[f].val[p] = mimg->band[f].val[p];
         }
         elements->val[p] = 1;
+        root->val[p] = p;
         iftInsertGQueue(&Q,p);
         S = S->next;
     }
@@ -591,10 +594,10 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
                     {
                         s = S->elem;
                         if (S->label == label->val[s]) {
-                            for (int f = 0; f < mimg->m; f++) {
-                                Feats[f] = mimg->band[f].val[s];
+                            for (int f = 0; f < mean->m; f++) {
+                                Feats[f] = mean->band[f].val[s];
                             }
-                            fdist = iftFeatDistance(Feats, Featq, mimg->m);
+                            fdist = iftFeatDistance(Feats, Featq, mean->m);
                             fmin = iftMin(fdist,fmin);
                         }
                         S = S->next;
@@ -617,12 +620,17 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
                         pathval->val[q]  = tmp;
                         iftInsertGQueue(&Q, q);
 
-                        //update mean and elements lookup tables
-                        elements->val[p] = elements->val[p] + 1;
-                        for (int f = 0; f < mimg->m; f++) {
+                        //update root, elements and mean tables
+                        s = root->val[p];
+                        root->val[q] = s;
+                        elements->val[s] = elements->val[s] + 1;
+                        printf("elements updated to %d\n", elements->val[s]);
+                        for (int f = 0; f < mean->m; f++) {
                             //calc mean dynamictly https://math.stackexchange.com/questions/106700/incremental-averageing
-                            mean->band[f].val[p] = mean->band[f].val[p] +
-                                    (mimg->band[f].val[p] - mean->band[f].val[p])/elements->val[p];
+                            mean->band[f].val[s] = mean->band[f].val[s] +
+                                    (mimg->band[f].val[p] - mean->band[f].val[s])/elements->val[s];
+
+                            printf("mean updated to %f\n", mean->band[f].val[s]);
                         }
 
                     }
@@ -636,6 +644,7 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
     iftDestroyImage(&pathval);
     iftDestroyMImage(&mean);
     iftDestroyImage(&elements);
+    iftDestroyImage(&root);
 
     return (label);
 }
