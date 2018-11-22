@@ -593,7 +593,7 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
                     while (S != NULL)
                     {
                         s = S->elem;
-                        if (S->label == label->val[s]) {
+                        if (S->label == label->val[p]) {
                             for (int f = 0; f < mean->m; f++) {
                                 Feats[f] = mean->band[f].val[s];
                             }
