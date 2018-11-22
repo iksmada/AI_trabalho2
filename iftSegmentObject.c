@@ -612,7 +612,7 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
 
 
                     //compare
-                    tmp = iftRound(iftMax(fmin + fdist,pathval->val[p]));
+                    tmp = iftRound(iftMax(fmin + fdist, pathval->val[p]));
                     if (tmp < pathval->val[q]){
                         if (Q->L.elem[q].color == IFT_GRAY)
                             iftRemoveGQueueElem(Q,q);
@@ -624,13 +624,10 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
                         s = root->val[p];
                         root->val[q] = s;
                         elements->val[s] = elements->val[s] + 1;
-                        printf("elements updated to %d\n", elements->val[s]);
                         for (int f = 0; f < mean->m; f++) {
                             //calc mean dynamictly https://math.stackexchange.com/questions/106700/incremental-averageing
                             mean->band[f].val[s] = mean->band[f].val[s] +
                                     (mimg->band[f].val[p] - mean->band[f].val[s])/elements->val[s];
-
-                            printf("mean updated to %f\n", mean->band[f].val[s]);
                         }
 
                     }
