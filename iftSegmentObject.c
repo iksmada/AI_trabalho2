@@ -516,7 +516,7 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
     iftImage   *pathval = NULL, *label = NULL, *aux = NULL, *elements = NULL, *root = NULL;
     iftMImage  *mean = NULL;
     iftGQueue  *Q = NULL;
-    int         i, p, q, tmp, s;
+    int         i, p, q, tmp, s, r;
     float Featp[mimg->m], Featq[mimg->m], Feats[mimg->m], fmin, fdist, Omax = iftMMaximumValue(mimg,0);
     iftVoxel    u, v;
     iftLabeledSet *S = NULL;
@@ -574,6 +574,15 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
     while (!iftEmptyGQueue(Q))
     {
         p = iftRemoveGQueue(Q);
+        //update elements and mean tables
+        r = root->val[p];
+        elements->val[r] = elements->val[r] + 1;
+        for (int f = 0; f < mean->m; f++) {
+            //calc mean dynamictly https://math.stackexchange.com/questions/106700/incremental-averageing
+            mean->band[f].val[r] = mean->band[f].val[r] +
+                                   (mimg->band[f].val[p] - mean->band[f].val[r])/elements->val[r];
+        }
+
         u = iftMGetVoxelCoord(mimg, p);
 
         for (i = 1; i < A->n; i++)
@@ -619,16 +628,8 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
                         label->val[q]    = label->val[p];
                         pathval->val[q]  = tmp;
                         iftInsertGQueue(&Q, q);
-
-                        //update root, elements and mean tables
-                        s = root->val[p];
-                        root->val[q] = s;
-                        elements->val[s] = elements->val[s] + 1;
-                        for (int f = 0; f < mean->m; f++) {
-                            //calc mean dynamictly https://math.stackexchange.com/questions/106700/incremental-averageing
-                            mean->band[f].val[s] = mean->band[f].val[s] +
-                                    (mimg->band[f].val[p] - mean->band[f].val[s])/elements->val[s];
-                        }
+                        //update root
+                        root->val[q] = r;
 
                     }
                 }
