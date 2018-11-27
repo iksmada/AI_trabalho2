@@ -280,7 +280,7 @@ iftImage *iftDelineateObjectByOrientedWatershed(iftImage *gradient, iftImage *ob
 
     // Initialization
     pathval  = iftCreateImage(gradient->xsize, gradient->ysize, gradient->zsize);
-    label     = iftCreateImage(gradient->xsize, gradient->ysize, gradient->zsize);
+    label    = iftCreateImage(gradient->xsize, gradient->ysize, gradient->zsize);
     Q        = iftCreateGQueue(Omax+1, gradient->n, pathval->val);
 
     for (p = 0; p < gradient->n; p++)
@@ -746,9 +746,9 @@ int main(int argc, char *argv[])
         weight = gradient;
 
     /* to use or not this function, change comments below */
-    iftLabeledSet *seeds = iftConnectInternalSeeds(training_set, objmap);
-    iftDestroyLabeledSet(&training_set);
-    //iftLabeledSet *seeds = training_set;
+    //iftLabeledSet *seeds = iftConnectInternalSeeds(training_set, objmap);
+    //iftDestroyLabeledSet(&training_set);
+    iftLabeledSet *seeds = training_set;
 
 
     /* to exchange across the three methods, change the comments
@@ -767,15 +767,17 @@ int main(int argc, char *argv[])
 
     /* Draw segmentation border */
 
-    iftDrawBorders(img, label, A, Blue, B);
-    //iftMyDrawBinaryLabeledSeeds(img,seeds,YCbCr,A);
+    //iftDrawBorders(img, label, A, Blue, B);
+    //iftMyDrawBinaryLabeledSeeds(label,seeds,Red,A);
+    aux = iftMask(img,label);
 
-    iftWriteImageByExt(img,argv[4]);
+    iftWriteImageByExt(aux,argv[4]);
 
     iftDestroyAdjRel(&A);
     iftDestroyAdjRel(&B);
     iftDestroyAdjRel(&C);
     iftDestroyImage(&img);
+    iftDestroyImage(&aux);
     iftDestroyImage(&objmap);
     if (weight != gradient)
         iftDestroyFImage(&weight);
@@ -786,4 +788,3 @@ int main(int argc, char *argv[])
 
     return(0);
 }
-
