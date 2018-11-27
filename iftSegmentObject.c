@@ -510,7 +510,7 @@ iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds
     return (label);
 }
 
-iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *seeds) {
+iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *seeds, char *mode) {
     iftWarning("Using this", "iftDelineateObjectByDynamicArcWeight");
 
     iftImage   *pathval = NULL, *label = NULL, *aux = NULL, *elements = NULL, *root = NULL;
@@ -521,9 +521,23 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
     iftVoxel    u, v;
     iftLabeledSet *S = NULL;
     iftAdjRel     *A = NULL;
+    bool w1=false,w2=false,w4=false,w5=false;
 
     if (iftNumberOfLabels(seeds)!=2)
         iftError("It is only implemented for binary segmentation","iftDelineateObjectByDynamicArcWeight");
+
+    if (strcmp(mode,"w1") == 0)
+        w1 = true;
+    if (strcmp(mode,"w2") == 0)
+        w2 = true;
+    if (strcmp(mode,"w4") == 0) {
+        w1 = true;
+        w4 = true;
+    }
+    if (strcmp(mode,"w5") == 0) {
+        w2 = true;
+        w5 = true;
+    }
 
     aux = iftMImageToImage(mimg,255,0);
     if (iftIs3DImage(aux))
@@ -594,31 +608,41 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
                 q = iftMGetVoxelIndex(mimg, v);
                 if (Q->L.elem[q].color != IFT_BLACK)
                 {
-                    // calculate w2 min{||Ur - Iq||}
+
                     fmin = IFT_INFINITY_FLT;
                     for (int f = 0; f < mimg->m; f++) {
                         Featq[f] = mimg->band[f].val[q];
                     }
-                    while (S != NULL)
-                    {
-                        s = S->elem;
-                        if (S->label == label->val[p]) {
-                            for (int f = 0; f < mean->m; f++) {
-                                Feats[f] = mean->band[f].val[s];
+                    // calculate w2 min{||Ur - Iq||}
+                    if (w2) {
+                        while (S != NULL) {
+                            s = S->elem;
+                            if (S->label == label->val[p]) {
+                                for (int f = 0; f < mean->m; f++) {
+                                    Feats[f] = mean->band[f].val[s];
+                                }
+                                fdist = iftFeatDistance(Feats, Featq, mean->m);
+                                fmin = iftMin(fdist, fmin);
                             }
-                            fdist = iftFeatDistance(Feats, Featq, mean->m);
-                            fmin = iftMin(fdist,fmin);
+                            S = S->next;
                         }
-                        S = S->next;
+                        S = seeds;
                     }
-                    S = seeds;
-
-                    // calculate w5 ||Iq - Ip||
-                    for (int f = 0; f < mimg->m; f++) {
-                        Featp[f] = mimg->band[f].val[p];
+                    if (w1) {
+                        for (int f = 0; f < mean->m; f++) {
+                            Feats[f] = mean->band[f].val[r];
+                        }
+                        fmin = iftFeatDistance(Feats, Featq, mean->m);
                     }
-                    fdist = iftFeatDistance(Featp, Featq, mimg->m);
 
+                    if (w4 || w5) {
+                        // calculate w5 ||Iq - Ip||
+                        for (int f = 0; f < mimg->m; f++) {
+                            Featp[f] = mimg->band[f].val[p];
+                        }
+                        fdist = iftFeatDistance(Featp, Featq, mimg->m);
+                    } else
+                        fdist=0.0f;
 
                     //compare
                     tmp = iftRound(iftMax(fmin + fdist, pathval->val[p]));
@@ -738,7 +762,7 @@ int main(int argc, char *argv[])
     //label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
     //label = iftDelineateObjectByWatershed(aux, seeds);
     //label = iftDelineateObjectByOrientedWatershed(aux,objmap,seeds);
-    label = iftDelineateObjectByDynamicArcWeight(mimg,seeds);
+    label = iftDelineateObjectByDynamicArcWeight(mimg,seeds,"w4");
     iftDestroyImage(&aux);
 
     /* Draw segmentation border */
