@@ -725,20 +725,20 @@ int main(int argc, char *argv[]) {
     /* Compute normalization value to combine weights and visualize overlays */
 
     int Imax = iftNormalizationValue(iftMaximumValue(img));
-    RGB.val[0] = Imax/5.0;
-    RGB.val[1] = Imax/2.0;
+    RGB.val[0] = Imax / 5.0;
+    RGB.val[1] = Imax / 2.0;
     RGB.val[2] = Imax;
-    Blue      = iftRGBtoYCbCr(RGB,Imax);
+    Blue = iftRGBtoYCbCr(RGB, Imax);
 
     RGB.val[0] = Imax;
-    RGB.val[1] = Imax/5.0;
-    RGB.val[2] = Imax/5.0;
-    Red      = iftRGBtoYCbCr(RGB,Imax);
+    RGB.val[1] = Imax / 5.0;
+    RGB.val[2] = Imax / 5.0;
+    Red = iftRGBtoYCbCr(RGB, Imax);
 
-    RGB.val[0] = Imax/5.0;
+    RGB.val[0] = Imax / 5.0;
     RGB.val[1] = Imax;
-    RGB.val[2] = Imax/5.0;
-    Green      = iftRGBtoYCbCr(RGB,Imax);
+    RGB.val[2] = Imax / 5.0;
+    Green = iftRGBtoYCbCr(RGB, Imax);
 
     /* Convert image into a multiband image */
 
@@ -746,7 +746,7 @@ int main(int argc, char *argv[]) {
 
     if (!iftIsColorImage(img)) {
         mimg = iftImageToMImage(img, GRAY_CSPACE);
-    } else{
+    } else {
         mimg = iftImageToMImage(img, YCbCr_CSPACE);
     }
 
