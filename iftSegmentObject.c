@@ -512,7 +512,7 @@ iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds
 }
 
 iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *seeds, char *mode) {
-    iftWarning("Using this", "iftDelineateObjectByDynamicArcWeight");
+    iftWarning(mode, "iftDelineateObjectByDynamicArcWeight");
 
     iftImage   *pathval = NULL, *label = NULL, *aux = NULL, *elements = NULL, *root = NULL;
     iftMImage  *mean = NULL;
@@ -679,7 +679,7 @@ int main(int argc, char *argv[]) {
     iftColor RGB, Blue, Red, Green;
     float alpha;
     static int region, watershed, oriented_watershed, dynamic_arc_weight;
-    char *alpha_str, *input, *output, *seeds_path;
+    char *alpha_str, *input, *output, *seeds_path, *mode = iftAllocString(2);
 
     if (argc < 5) {
         iftError("Usage: iftSegmentObject <input-image.png> <training-set.txt> <alpha [0-1]> <output-label.png>",
@@ -695,12 +695,20 @@ int main(int argc, char *argv[]) {
                             {"region", no_argument, &region,             1},
                             {"watershed", no_argument, &watershed,          1},
                             {"oriented-watershed", no_argument, &oriented_watershed, 1},
-                            {"dynamic-arc-weight", no_argument, &dynamic_arc_weight, 1},
+                            {"dynamic-arc-weight", required_argument, 0, 'd'},
                     };
             /* getopt_long stores the option index here. */
-            int option_index = 4;
+            int option_index = 4, opt;
 
-            while (getopt_long_only(argc, argv, "", long_options, &option_index) != -1);
+            while ((opt = getopt_long_only(argc, argv, "d:", long_options, &option_index)) != -1) {
+                switch (opt) {
+                    case 'd':
+                        strcpy(mode,optarg);
+                        dynamic_arc_weight=true;
+                    default:
+                        break;
+                }
+            }
         }
     }
 
@@ -792,7 +800,7 @@ int main(int argc, char *argv[]) {
         else
             label = iftDelineateObjectByOrientedWatershed(aux,objmap,seeds);
     } else
-        label = iftDelineateObjectByDynamicArcWeight(mimg,seeds,"w4");
+        label = iftDelineateObjectByDynamicArcWeight(mimg,seeds, mode);
     iftDestroyImage(&aux);
 
     /* Draw segmentation border */
@@ -814,6 +822,7 @@ int main(int argc, char *argv[]) {
     iftDestroyImage(&label);
     iftDestroyMImage(&mimg);
     iftDestroyLabeledSet(&seeds);
+    iftDestroyStrArray(&mode);
 
     return(0);
 }
