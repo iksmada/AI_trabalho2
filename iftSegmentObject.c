@@ -1,4 +1,5 @@
 #include "ift.h"
+#include <getopt.h>
 
 #define INITIAL_LABEL 2
 
@@ -671,26 +672,46 @@ iftImage *iftDelineateObjectByDynamicArcWeight(iftMImage *mimg, iftLabeledSet *s
     return (label);
 }
 
-int main(int argc, char *argv[])
-{
-    iftAdjRel *A=iftCircular(1.0);
-    iftAdjRel *B=iftCircular(0.0);
-    iftAdjRel *C=iftCircular(sqrtf(2.0));
-    iftColor   RGB, Blue, Red, Green;
-    float      alpha;
+int main(int argc, char *argv[]) {
+    iftAdjRel *A = iftCircular(1.0);
+    iftAdjRel *B = iftCircular(0.0);
+    iftAdjRel *C = iftCircular(sqrtf(2.0));
+    iftColor RGB, Blue, Red, Green;
+    float alpha;
+    static int region, watershed, oriented_watershed, dynamic_arc_weight;
+    char *alpha_str, *input, *output, *seeds_path;
 
-    if (argc != 5){
-        iftError("Usage: iftSegmentObject <input-image.png> <training-set.txt> <alpha [0-1]> <output-label.png>","main");
+    if (argc < 5) {
+        iftError("Usage: iftSegmentObject <input-image.png> <training-set.txt> <alpha [0-1]> <output-label.png>",
+                 "main");
+    } else {
+        input = argv[1];
+        seeds_path = argv[2];
+        alpha_str = argv[3];
+        output = argv[4];
+        if (argc > 5) {
+            static struct option long_options[] =
+                    {
+                            {"region", no_argument, &region,             1},
+                            {"watershed", no_argument, &watershed,          1},
+                            {"oriented-watershed", no_argument, &oriented_watershed, 1},
+                            {"dynamic-arc-weight", no_argument, &dynamic_arc_weight, 1},
+                    };
+            /* getopt_long stores the option index here. */
+            int option_index = 4;
+
+            while (getopt_long_only(argc, argv, "", long_options, &option_index) != -1);
+        }
     }
-    alpha = atof(argv[3]);
-    if ((alpha<0.0)||(alpha>1.0))
-        iftError("alpha=%f is outside [0,1]","main",alpha);
+
+    alpha = atof(alpha_str);
+    if ((alpha < 0.0) || (alpha > 1.0))
+        iftError("alpha=%f is outside [0,1]", "main", alpha);
 
 
     /* Read image and pre-process it to reduce noise */
-
-    iftImage  *aux = iftReadImageByExt(argv[1]);
-    iftImage  *img = iftSmoothImage(aux,C,3.0);
+    iftImage *aux = iftReadImageByExt(input);
+    iftImage *img = iftSmoothImage(aux, C, 3.0);
     iftDestroyImage(&aux);
 
     /* Compute normalization value to combine weights and visualize overlays */
@@ -723,27 +744,32 @@ int main(int argc, char *argv[])
 
     /* Read seeds as training set */
 
-    iftLabeledSet *training_set = iftReadSeeds(img, argv[2]);
+    iftLabeledSet *training_set = iftReadSeeds(img, seeds_path);
 
-    /* Create the object map by pixel classification */
+    iftImage *objmap = NULL;
+    if (region || oriented_watershed) {
+        /* Create the object map by pixel classification */
+        objmap = iftObjectMap(mimg, training_set, Imax);
+        iftWriteImageByExt(objmap, "objmap.png");
+    }
 
-    iftImage *objmap=NULL;
-    objmap = iftObjectMap(mimg, training_set, Imax);
-    iftWriteImageByExt(objmap,"objmap.png");
+    iftFImage *gradient = NULL;
+    if (region || watershed || oriented_watershed) {
+        gradient = iftGradientImage(mimg, C);
+        aux = iftFImageToImage(gradient, Imax);
+        iftWriteImageByExt(aux, "gradient.png");
+        iftDestroyImage(&aux);
+    }
 
-    iftFImage *gradient = iftGradientImage(mimg,C);
-    aux = iftFImageToImage(gradient,Imax);
-    iftWriteImageByExt(aux, "gradient.png");
-    iftDestroyImage(&aux);
-
-    iftFImage *weight;
-    if (alpha!=0.0) {
+    iftFImage *weight = NULL;
+    if (alpha != 0.0 && region) {
         weight = iftArcWeightImage(gradient, objmap, alpha, C);
-        aux  = iftFImageToImage(weight,Imax);
-        iftWriteImageByExt(aux,"weight.png");
+        aux = iftFImageToImage(weight, Imax);
+        iftWriteImageByExt(aux, "weight.png");
         iftDestroyImage(&aux);
     } else
-        weight = gradient;
+        // if alpha is 0.0 we can jump this step
+        weight = iftFCopyImage(gradient);
 
     /* to use or not this function, change comments below */
     //iftLabeledSet *seeds = iftConnectInternalSeeds(training_set, objmap);
@@ -756,13 +782,17 @@ int main(int argc, char *argv[])
        w5 as in the paper. */
 
     iftImage *label = NULL;
-
-    //aux = iftFImageToImage(weight, Imax);
-    //aux = iftFImageToImage(gradient, Imax);
-    //label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
-    //label = iftDelineateObjectByWatershed(aux, seeds);
-    //label = iftDelineateObjectByOrientedWatershed(aux,objmap,seeds);
-    label = iftDelineateObjectByDynamicArcWeight(mimg,seeds,"w4");
+    if (region) {
+        aux = iftFImageToImage(weight, Imax);
+        label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
+    } else if (watershed || oriented_watershed) {
+        aux = iftFImageToImage(gradient, Imax);
+        if (watershed)
+            label = iftDelineateObjectByWatershed(aux, seeds);
+        else
+            label = iftDelineateObjectByOrientedWatershed(aux,objmap,seeds);
+    } else
+        label = iftDelineateObjectByDynamicArcWeight(mimg,seeds,"w4");
     iftDestroyImage(&aux);
 
     /* Draw segmentation border */
@@ -771,7 +801,7 @@ int main(int argc, char *argv[])
     //iftMyDrawBinaryLabeledSeeds(label,seeds,Red,A);
     aux = iftMask(img,label);
 
-    iftWriteImageByExt(aux,argv[4]);
+    iftWriteImageByExt(aux,output);
 
     iftDestroyAdjRel(&A);
     iftDestroyAdjRel(&B);
@@ -779,8 +809,7 @@ int main(int argc, char *argv[])
     iftDestroyImage(&img);
     iftDestroyImage(&aux);
     iftDestroyImage(&objmap);
-    if (weight != gradient)
-        iftDestroyFImage(&weight);
+    iftDestroyFImage(&weight);
     iftDestroyFImage(&gradient);
     iftDestroyImage(&label);
     iftDestroyMImage(&mimg);
