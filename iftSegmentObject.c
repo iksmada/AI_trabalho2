@@ -434,6 +434,83 @@ iftImage *iftDelineateObjectRegion(iftImage *weight, iftImage *objmap, iftLabele
     return (label);
 }
 
+iftImage *iftDelineateObjectByGradient(iftImage *gradient, iftLabeledSet *seeds) {
+    iftWarning("Using this", "iftDelineateObjectByGradient");
+
+    iftImage   *pathval = NULL, *label = NULL;
+    iftGQueue  *Q = NULL;
+    int         i, p, q, tmp, Omax=iftMaximumValue(gradient);
+    iftVoxel    u, v;
+    iftLabeledSet *S = NULL;
+    iftAdjRel     *A = NULL;
+
+    if (iftNumberOfLabels(seeds)!=2)
+        iftError("It is only implemented for binary segmentation","iftDelineateObjectByGradient");
+
+    if (iftIs3DImage(gradient))
+        A = iftSpheric(1.0);
+    else
+        A = iftCircular(1.0);
+
+    // Initialization
+    pathval  = iftCreateImage(gradient->xsize, gradient->ysize, gradient->zsize);
+    label     = iftCreateImage(gradient->xsize, gradient->ysize, gradient->zsize);
+    Q        = iftCreateGQueue(Omax+1, gradient->n, pathval->val);
+
+    for (p = 0; p < gradient->n; p++)
+    {
+        pathval->val[p] = IFT_INFINITY_INT;
+        //invalid label to show if some pixel is not labeled
+        label->val[p] = INITIAL_LABEL;
+    }
+
+    S = seeds;
+    while (S != NULL)
+    {
+        p = S->elem;
+        label->val[p]    = S->label;
+        pathval->val[p] = 0;
+        iftInsertGQueue(&Q,p);
+        S = S->next;
+    }
+
+    /* Image Foresting Transform */
+
+    while (!iftEmptyGQueue(Q))
+    {
+        p = iftRemoveGQueue(Q);
+        u = iftGetVoxelCoord(gradient, p);
+
+        for (i = 1; i < A->n; i++)
+        {
+            v = iftGetAdjacentVoxel(A, u, i);
+
+            if (iftValidVoxel(gradient, v))
+            {
+                q = iftGetVoxelIndex(gradient, v);
+                if (Q->L.elem[q].color != IFT_BLACK)
+                {
+                    //tmp = gradient->val[q];
+                    tmp = iftMax(abs(gradient->val[q]-gradient->val[p]),pathval->val[p]);
+                    if (tmp < pathval->val[q]){
+                        if (Q->L.elem[q].color == IFT_GRAY)
+                            iftRemoveGQueueElem(Q,q);
+                        label->val[q]    = label->val[p];
+                        pathval->val[q]  = tmp;
+                        iftInsertGQueue(&Q, q);
+                    }
+                }
+            }
+        }
+    }
+
+    iftDestroyAdjRel(&A);
+    iftDestroyGQueue(&Q);
+    iftDestroyImage(&pathval);
+
+    return (label);
+}
+
 iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds) {
     iftWarning("Using this", "iftDelineateObjectByWatershed");
 
@@ -491,7 +568,7 @@ iftImage *iftDelineateObjectByWatershed(iftImage *gradient, iftLabeledSet *seeds
                 if (Q->L.elem[q].color != IFT_BLACK)
                 {
                     //tmp = gradient->val[q];
-                    tmp = iftMax(abs(gradient->val[q]-gradient->val[p]),pathval->val[p]);
+                    tmp = iftMax(abs(gradient->val[q]),pathval->val[p]);
                     if (tmp < pathval->val[q]){
                         if (Q->L.elem[q].color == IFT_GRAY)
                             iftRemoveGQueueElem(Q,q);
@@ -678,7 +755,7 @@ int main(int argc, char *argv[]) {
     iftAdjRel *C = iftCircular(sqrtf(2.0));
     iftColor RGB, Blue, Red, Green;
     float alpha;
-    static int region, watershed, oriented_watershed, dynamic_arc_weight;
+    static int region, watershed, oriented_watershed, dynamic_arc_weight, gradient_flag;
     char *alpha_str, *input, *output, *seeds_path, *mode = iftAllocString(2);
 
     if (argc < 5) {
@@ -696,6 +773,7 @@ int main(int argc, char *argv[]) {
                             {"watershed", no_argument, &watershed,          1},
                             {"oriented-watershed", no_argument, &oriented_watershed, 1},
                             {"dynamic-arc-weight", required_argument, 0, 'd'},
+                            {"gradient", no_argument, &gradient_flag, 1},
                     };
             /* getopt_long stores the option index here. */
             int option_index = 4, opt;
@@ -762,7 +840,7 @@ int main(int argc, char *argv[]) {
     }
 
     iftFImage *gradient = NULL;
-    if (region || watershed || oriented_watershed) {
+    if (region || watershed || oriented_watershed || gradient_flag) {
         gradient = iftGradientImage(mimg, C);
         aux = iftFImageToImage(gradient, Imax);
         iftWriteImageByExt(aux, "gradient.png");
@@ -793,10 +871,12 @@ int main(int argc, char *argv[]) {
     if (region) {
         aux = iftFImageToImage(weight, Imax);
         label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
-    } else if (watershed || oriented_watershed) {
+    } else if (watershed || oriented_watershed || gradient_flag) {
         aux = iftFImageToImage(gradient, Imax);
         if (watershed)
             label = iftDelineateObjectByWatershed(aux, seeds);
+        else if (gradient_flag)
+            label = iftDelineateObjectByGradient(aux,seeds);
         else
             label = iftDelineateObjectByOrientedWatershed(aux,objmap,seeds);
     } else
