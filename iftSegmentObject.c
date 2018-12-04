@@ -847,16 +847,6 @@ int main(int argc, char *argv[]) {
         iftDestroyImage(&aux);
     }
 
-    iftFImage *weight = NULL;
-    if (alpha != 0.0 && region) {
-        weight = iftArcWeightImage(gradient, objmap, alpha, C);
-        aux = iftFImageToImage(weight, Imax);
-        iftWriteImageByExt(aux, "weight.png");
-        iftDestroyImage(&aux);
-    } else
-        // if alpha is 0.0 we can jump this step
-        weight = iftFCopyImage(gradient);
-
     /* to use or not this function, change comments below */
     //iftLabeledSet *seeds = iftConnectInternalSeeds(training_set, objmap);
     //iftDestroyLabeledSet(&training_set);
@@ -868,12 +858,11 @@ int main(int argc, char *argv[]) {
        w5 as in the paper. */
 
     iftImage *label = NULL;
-    if (region) {
-        aux = iftFImageToImage(weight, Imax);
-        label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
-    } else if (watershed || oriented_watershed || gradient_flag) {
+    if (region || watershed || oriented_watershed || gradient_flag) {
         aux = iftFImageToImage(gradient, Imax);
-        if (watershed)
+        if (region)
+            label = iftDelineateObjectRegion(aux, objmap, seeds, alpha);
+        else if (watershed)
             label = iftDelineateObjectByWatershed(aux, seeds);
         else if (gradient_flag)
             label = iftDelineateObjectByGradient(aux,seeds);
@@ -897,7 +886,6 @@ int main(int argc, char *argv[]) {
     iftDestroyImage(&img);
     iftDestroyImage(&aux);
     iftDestroyImage(&objmap);
-    iftDestroyFImage(&weight);
     iftDestroyFImage(&gradient);
     iftDestroyImage(&label);
     iftDestroyMImage(&mimg);
