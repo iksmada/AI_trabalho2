@@ -755,7 +755,7 @@ int main(int argc, char *argv[]) {
     iftAdjRel *C = iftCircular(sqrtf(2.0));
     iftColor RGB, Blue, Red, Green;
     float alpha;
-    static int region, watershed, oriented_watershed, dynamic_arc_weight, gradient_flag, connect_seeds;
+    static int region, watershed, oriented_watershed, dynamic_arc_weight, gradient_flag, connect_seeds, draw_seeds;
     char *alpha_str, *input, *output, *seeds_path, *mode = iftAllocString(2);
 
     if (argc < 5) {
@@ -776,6 +776,7 @@ int main(int argc, char *argv[]) {
                             {"dynamic-arc-weight", required_argument, 0, 'd'},
                             {"gradient", no_argument, &gradient_flag, 1},
                             {"connect-seeds", no_argument, &connect_seeds, 1},
+                            {"draw-seeds", no_argument, &draw_seeds, 1},
                     };
             /* getopt_long stores the option index here. */
             int option_index = 4, opt;
@@ -851,7 +852,7 @@ int main(int argc, char *argv[]) {
 
     iftLabeledSet *seeds = NULL;
     if (connect_seeds) {
-        printf("Seeds Connected");
+        printf("Seeds Connected\n");
         seeds = iftConnectInternalSeeds(training_set, objmap);
         iftDestroyLabeledSet(&training_set);
     }
@@ -881,8 +882,11 @@ int main(int argc, char *argv[]) {
     /* Draw segmentation border */
 
     //iftDrawBorders(img, label, A, Blue, B);
-    //iftMyDrawBinaryLabeledSeeds(label,seeds,Red,A);
     aux = iftMask(img,label);
+    if (draw_seeds) {
+        printf("Drawing Seeds\n");
+        iftMyDrawBinaryLabeledSeeds(aux, seeds, Red, A);
+    }
 
     iftWriteImageByExt(aux,output);
 
