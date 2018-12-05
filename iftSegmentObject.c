@@ -755,12 +755,13 @@ int main(int argc, char *argv[]) {
     iftAdjRel *C = iftCircular(sqrtf(2.0));
     iftColor RGB, Blue, Red, Green;
     float alpha;
-    static int region, watershed, oriented_watershed, dynamic_arc_weight, gradient_flag;
+    static int region, watershed, oriented_watershed, dynamic_arc_weight, gradient_flag, connect_seeds;
     char *alpha_str, *input, *output, *seeds_path, *mode = iftAllocString(2);
 
     if (argc < 5) {
         iftError("Usage: iftSegmentObject <input-image.png> <training-set.txt> <alpha [0-1]> <output-label.png>",
                  "main");
+        return (1);
     } else {
         input = argv[1];
         seeds_path = argv[2];
@@ -774,6 +775,7 @@ int main(int argc, char *argv[]) {
                             {"oriented-watershed", no_argument, &oriented_watershed, 1},
                             {"dynamic-arc-weight", required_argument, 0, 'd'},
                             {"gradient", no_argument, &gradient_flag, 1},
+                            {"connect-seeds", no_argument, &connect_seeds, 1},
                     };
             /* getopt_long stores the option index here. */
             int option_index = 4, opt;
@@ -833,7 +835,7 @@ int main(int argc, char *argv[]) {
     iftLabeledSet *training_set = iftReadSeeds(img, seeds_path);
 
     iftImage *objmap = NULL;
-    if (region || oriented_watershed) {
+    if (connect_seeds || region || oriented_watershed) {
         /* Create the object map by pixel classification */
         objmap = iftObjectMap(mimg, training_set, Imax);
         iftWriteImageByExt(objmap, "objmap.png");
@@ -847,10 +849,14 @@ int main(int argc, char *argv[]) {
         iftDestroyImage(&aux);
     }
 
-    /* to use or not this function, change comments below */
-    //iftLabeledSet *seeds = iftConnectInternalSeeds(training_set, objmap);
-    //iftDestroyLabeledSet(&training_set);
-    iftLabeledSet *seeds = training_set;
+    iftLabeledSet *seeds = NULL;
+    if (connect_seeds) {
+        printf("Seeds Connected");
+        seeds = iftConnectInternalSeeds(training_set, objmap);
+        iftDestroyLabeledSet(&training_set);
+    }
+    else
+       seeds = training_set;
 
 
     /* to exchange across the three methods, change the comments
@@ -890,7 +896,6 @@ int main(int argc, char *argv[]) {
     iftDestroyImage(&label);
     iftDestroyMImage(&mimg);
     iftDestroyLabeledSet(&seeds);
-    iftDestroyStrArray(&mode);
 
     return(0);
 }
